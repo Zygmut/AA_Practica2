@@ -7,52 +7,54 @@ from torch.nn import (
     ReLU,
     Flatten,
     BatchNorm2d,
+    Sequential,
 )
-import torch
 
 
 class CatDogNet(Module):
     def __init__(self):
         super(CatDogNet, self).__init__()
+        self.conv_block1 = CatDogNet.convolutional_block(3, 64)
+        self.conv_block2 = CatDogNet.convolutional_block(64, 128)
+        self.conv_block3 = CatDogNet.convolutional_block(128, 256)
+        self.conv_block4 = CatDogNet.convolutional_block(256, 512)
+
         self.relu = ReLU()
-        self.maxpool = MaxPool2d(kernel_size=2, stride=2)
         self.dropout = Dropout(0.5)
         self.flatten = Flatten()
 
-        self.conv1 = Conv2d(3, 16, kernel_size=3, stride=1, padding=1)
-        self.conv2 = Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
+        self.linear1 = Linear(512 * 8 * 8, 1024)
+        self.linear2 = Linear(1024, 2)
 
-        self.batchnorm1 = BatchNorm2d(16)
-        self.batchnorm2 = BatchNorm2d(32)
-        self.batchnorm3 = BatchNorm2d(128)
-
-        self.linear1 = Linear(32 * 32 * 32, 128)
-        self.linear2 = Linear(128, 2)
-
-    def forward(self, x):
-        layer_order = (
-            ("conv", self.conv_1),
-            ("batc", self.batchnorm1),
-            ("relu", self.relu),
-            ("maxp", self.maxpool),
-            ("conv", self.conv_2),
-            ("batc", self.batchnorm2),
-            ("relu", self.relu),
-            ("maxp", self.maxpool),
-            ("drop", self.dropout),
-            ("flat", lambda x: torch.flatten(x, 1)),
-            ("line", self.linear1),
-            ("batc", self.batchnorm3),
-            ("relu", self.relu),
-            ("drop", self.dropout),
-            ("line", self.linear2),
+        self.layers = Sequential(
+            self.conv_block1,
+            self.conv_block2,
+            self.conv_block3,
+            self.conv_block4,
+            self.dropout,
+            self.flatten,
+            self.linear1,
+            self.relu,
+            self.dropout,
+            self.linear2,
         )
 
-        data = x.clone()
+    def forward(self, x):
+        return self.layers(x)
 
-        data_outputs = []
-        for name, layer in layer_order:
-            data = layer(data)
-            data_outputs.append((name, data.clone()))
-
-        return data, data_outputs
+    @staticmethod
+    def convolutional_block(
+        in_channels, out_channels, kernel_size=3, stride=1, padding=1
+    ):
+        return Sequential(
+            Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size,
+                stride=stride,
+                padding=padding,
+            ),
+            BatchNorm2d(out_channels),
+            ReLU(),
+            MaxPool2d(kernel_size=2, stride=2),
+        )
